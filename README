@@ -22,8 +22,8 @@ https://github.com/tspink/infos-user
 
 Here are some commands to get you started:
 
-# git clone https://github.com/tspink/infos
-# git clone https://github.com/tspink/infos-user
+# git clone https://github.com/s17b2-voroneckij/infos
+# git clone https://github.com/s17b2-voroneckij/infos-user
 # cd infos
 # make
 # cd ../infos-user
@@ -33,6 +33,7 @@ Here are some commands to get you started:
   -kernel ../infos/out/infos-kernel \
   -debugcon stdio \
   -hda bin/rootfs.tar \
+  -cpu Cascadelake-Server \
   -append 'pgalloc.debug=0 pgalloc.algorithm=simple objalloc.debug=0 sched.debug=0 sched.algorithm=cfs syslog=serial boot-device=ata0 init=/usr/init'
 
 This should boot InfOS in QEMU, starting the example user-space.
