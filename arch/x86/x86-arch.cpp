@@ -123,7 +123,7 @@ void X86Arch::dump_stack(const kernel::ThreadContext& context) const
 void X86Arch::dump_native_context(const X86Context& native_context) const
 {
 	syslog.messagef(LogLevel::DEBUG, "rax=%016lx, rbx=%016lx, rcx=%016lx, rdx=%016lx",
-			native_context.rcx,
+			native_context.rax,
 			native_context.rbx,
 			native_context.rcx,
 			native_context.rdx);
@@ -144,7 +144,7 @@ void X86Arch::dump_native_context(const X86Context& native_context) const
 			native_context.r12,
 			native_context.r13,
 			native_context.r14,
-			/*native_context.r15*/0);
+			native_context.r15);
 
 	syslog.messagef(LogLevel::DEBUG, "rip=%016lx, cs=%04lx, ss=%04lx, rflags=%016lx, extra=%lx",
 			native_context.rip,
