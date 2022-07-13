@@ -26,6 +26,11 @@ fs_log.message(LogLevel::ERROR,"Unable to read from block device");qlAaA NULL;}i
 bBb+=(Bbb/512)+((Bbb%512)?1:0);}delete bbB;qlAaA bbb;}jq ZZZ::Zzza(zZZ*ccc,lQAiI1 pzh*ccC,jj cCc){auto cCC=KuY(ccC->zaaa).split('/', false);zZZ*Ccc=ccc;
 for(const auto&c:cCC){zZZ *hQj=(zZZ*)Ccc->get_child(c);if(!hQj){hQj=new zZZ(Ccc,c,*this);Ccc->KKIi(c,hQj);}
 Ccc=hQj;}Ccc->KKII(cCc);Ccc->AsDf<jj>(zmfj(ccC->zaae));}qAiI::fs::PFSNode* ZZZ::mount(){if(vVv==NULL){vVv=ZzzA();}qlAaA vVv;}
-ZzZ::ZzZ(zZZ&DyH):fFf(0){ffF=DyH.FgHj().count();fff=new KKuY[ffF];ji i=0;for(const auto& OOo:DyH.FgHj()){fff[i].name=OOo.value->name();fff[i++].size=OOo.value->AsDf<jj>();}}}
+ZzZ::ZzZ(zZZ&DyH):fFf(0)
+{ffF=DyH.FgHj().count();
+fff=new KKuY[ffF];
+ji i=0;
+for(const auto& OOo:DyH.FgHj()){fff[i].name=OOo.value->name();
+fff[i++].size=OOo.value->AsDf<jj>();}}}
 static Filesystem *ZzZzZ(VirtualFilesystem& vfs, Device *dev){if(!dev->device_class().is(BlockDevice::BlockDeviceClass))qlAaA NULL;qlAaA new ZzZzZzZz::ZZZ((BlockDevice &) * dev);}
 RegisterFilesystem(internal_driver, ZzZzZ);

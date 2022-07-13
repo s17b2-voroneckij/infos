@@ -257,7 +257,7 @@ extern "C" void __handle_raw_irq(uint32_t irq_nr)
 {
 	// Sanity checking.
 	assert(irq_nr < MAX_IRQS);
-	
+
 	// Lookup the IRQ descriptor for the IRQ vector number, and retrieve the IRQ
 	// handler object.
 	IRQ *irq = x86arch.irq_manager().get_irq_descriptor(irq_nr)->irq();

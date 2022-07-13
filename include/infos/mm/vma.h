@@ -37,7 +37,8 @@ namespace infos
 			
 			PageDescriptor *allocate_phys(int order);
 			bool allocate_virt(virt_addr_t va, int nr_pages);
-			bool allocate_virt_any(int nr_pages);
+			virt_addr_t allocate_virt_any(unsigned int nr_pages);
+			void release_memory(virt_addr_t va);
 			
 			void insert_mapping(virt_addr_t va, phys_addr_t pa, MappingFlags::MappingFlags flags);
 			bool get_mapping(virt_addr_t va, phys_addr_t& pa);
@@ -60,6 +61,7 @@ namespace infos
 			
 			phys_addr_t _pgt_phys_base;
 			virt_addr_t _pgt_virt_base;
+            virt_addr_t _next_free_address = 0xfff00000000;
 			
 			void dump_pdp(int pml4, virt_addr_t pdp_va);
 			void dump_pd(int pml4, int pdp, virt_addr_t pd_va);

@@ -38,6 +38,11 @@ void operator delete(void *p, size_t sz)
 	sys.mm().objalloc().free(p);
 }
 
+void operator delete[](void *p, size_t sz)
+{
+    sys.mm().objalloc().free(p);
+}
+
 extern "C" {
 
 	void __cxa_pure_virtual()

@@ -8,6 +8,7 @@
  *
  * Tom Spink <tspink@inf.ed.ac.uk>
  */
+#include <infos/kernel/abi.h>
 #include <infos/kernel/thread.h>
 #include <infos/kernel/process.h>
 #include <infos/kernel/kernel.h>
@@ -102,15 +103,56 @@ void Thread::start()
 /**
  * Stops the thread.  This does not clean up any resources associated with the thread, however.
  */
-void Thread::stop()
-{
-	// Set the state of this thread to be stopped.
-	sys.scheduler().set_entity_state(*this, SchedulingEntityState::STOPPED);
 
+class ThreadTerminateException {};
+
+extern "C" {
+	void* __cxa_allocate_exception(size_t thrown_size);
+}
+
+void Thread::stop(bool simple_exit)
+{
 	// If this thread is currently running, then we must yield so that
 	// execution doesn't return into it.
-	if (&Thread::current() == this) {
+	if (&Thread::current() == this && simple_exit) {
+		// Set the state of this thread to be stopped.
+		sys.scheduler().set_entity_state(*this, SchedulingEntityState::STOPPED);
+		// If this thread is currently running, then we must yield so that
+		// execution doesn't return into it.
 		sys.arch().invoke_kernel_syscall(1);
+	} else {
+		// we want to throw an exception into the thread
+		if (!this->owner().exceptionInfoAvailable()) {
+			sys.scheduler().set_entity_state(*this, SchedulingEntityState::STOPPED);
+			return; 
+		}
+		syslog.messagef(LogLevel::DEBUG, "Thread::stop() doing exception magic with thread %lx", this);
+		auto* thrown_exception = __cxa_allocate_exception(sizeof(ThreadTerminateException));
+		__cxa_exception *header = (__cxa_exception *) thrown_exception - 1;
+        header->exceptionDestructor = NULL;
+        header->nextException = nullptr;
+        auto typeName = "1ThreadTerminateException";
+        char* newAddr = NULL;
+        if (this->owner().exceptionInfoAvailable()) {
+            newAddr = (char *)(this->owner().getExceptionPrepareInfo().malloc_ptr)(strlen(typeName) + 1);
+        } else {
+            newAddr = (char *)DefaultSyscalls::sys_allocate_memory(1);
+        }
+        if (!newAddr) {
+        }
+        memcpy(newAddr, typeName, strlen(typeName) + 1);
+        header->exceptionTypeName = newAddr;
+
+		// now we need to prepare the context
+		if (this->_context.native_context->rip > 0xffff000000000000) {
+			this->_context.native_context = this->before_syscall_context;
+		}
+		this->_context.native_context->rsp -= 8;
+		*(unsigned long*)(this->_context.native_context->rsp) = this->_context.native_context->rip;
+		syslog.messagef(LogLevel::DEBUG, "rip: %lx", this->_context.native_context->rip);
+		syslog.messagef(LogLevel::DEBUG, "rsp: %lx", this->_context.native_context->rsp);
+		this->_context.native_context->rip = (uint64_t)this->owner().getExceptionPrepareInfo().unwind_address;
+		this->_context.native_context->rdi = (uint64_t)&header->unwindHeader;
 	}
 }
 
@@ -187,6 +229,8 @@ void Thread::prepare_initial_stack()
 	*--stack = 0;	// R13
 	*--stack = 0;	// R14
 	*--stack = 0;	// R15
+	*--stack = 0;	// GS
+	*--stack = 0;	// FS
 	*--stack = 0;	// Previous Context
 
 	_context.native_context = (X86Context *)((uintptr_t)stack);

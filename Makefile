@@ -19,7 +19,7 @@ export out-dir	    := $(top-dir)/out
 
 export common-flags := -I$(inc-dir) -nostdinc -nostdlib -g -Wall -O3 -std=gnu++17 -fno-pic
 export common-flags += -mcmodel=kernel
-export common-flags += -ffreestanding -fno-builtin -fno-omit-frame-pointer -fno-rtti -fno-exceptions -fno-stack-protector
+export common-flags += -ffreestanding -fno-builtin -fno-omit-frame-pointer -fno-rtti -fexceptions -fno-stack-protector
 export common-flags += -fno-delete-null-pointer-checks -mno-red-zone
 export common-flags += -mno-mmx -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-sse4 -mno-avx -mno-aes -mno-sse4a -mno-fma4
 
@@ -38,8 +38,9 @@ ifneq ($(wildcard $(top-dir)/oot/.),)
 endif
 
 export main-cpp-src := $(patsubst %,$(top-dir)/%,$(shell find $(source-dirs) | grep -E "\.cpp$$"))
+export main-c-src := $(patsubst %,$(top-dir)/%,$(shell find $(source-dirs) | grep -E "\.c$$"))
 export main-as-src  := $(patsubst %,$(top-dir)/%,$(shell find $(source-dirs) | grep -E "\.S$$"))
-export main-obj	    := $(main-cpp-src:.cpp=.o) $(main-as-src:.S=.o)
+export main-obj	    := $(main-cpp-src:.cpp=.o) $(main-as-src:.S=.o) $(main-c-src:.c=.o)
 export main-dep	    := $(main-obj:.o=.d)
 
 all: $(target)
@@ -72,12 +73,19 @@ $(out-dir):
 	@echo "  CXX      $(BUILD-TARGET)"
 	$(q)$(cxx) -c -o $@ $(cxxflags) $<
 
+%.o: %.c %.d
+	@echo "  CXX      $(BUILD-TARGET)"
+	$(q)gcc -c -o $@ $(cxxflags) $<
+
 %.o: %.S %.d
 	@echo "  AS       $(BUILD-TARGET)"
 	$(q)$(cxx) -c -o $@ $(asflags) $<
 
 %.d: %.cpp
 	$(q)$(cxx) -M -MT $(@:.d=.o) -o $@ $(cxxflags) $<
+
+%.d: %.c
+	$(q)gcc -M -MT $(@:.d=.o) -o $@ $(cxxflags) $<
 
 %.d: %.S
 	$(q)$(cxx) -M -MT $(@:.d=.o) -o $@ $(cxxflags) $<

@@ -15,6 +15,10 @@
 #include <infos/kernel/log.h>
 #include <arch/arch.h>
 
+extern "C" {
+#include <infos/util/lock-c.h>
+}
+
 using namespace infos::util;
 using namespace infos::kernel;
 
@@ -27,9 +31,21 @@ void Mutex::lock()
 	_owner = &Thread::current();
 }
 
+void mutex_lock(struct mutex* m) {
+	while (__sync_lock_test_and_set(&m->_locked, 1)) {
+		infos::kernel::sys.arch().invoke_kernel_syscall(1);
+	}
+	
+	m->_owner = &Thread::current();
+}
+
 void Mutex::unlock()
 {
 	__sync_lock_release(&_locked);
+}
+
+void mutex_unlock(struct mutex* m) {
+	__sync_lock_release(&m->_locked);
 }
 
 bool Mutex::locked_by_me()

@@ -93,6 +93,8 @@ void Kernel::start_kernel_threadproc_tramp(Kernel* kernel, BottomFn bottom)
 	kernel->_kernel_process->terminate(0);
 }
 
+extern void prepare_exceptions(const char* FILE_NAME);
+
 void Kernel::start_kernel_threadproc()
 {
 	DefaultSyscalls::RegisterDefaultSyscalls(syscalls());
@@ -160,6 +162,7 @@ void Kernel::start_kernel_threadproc()
 		arch_abort();
 	}
 
+	prepare_exceptions("/usr/infos-kernel.64");
 	resync_tod();
 	print_tod();
 }
@@ -252,7 +255,7 @@ Process *Kernel::launch_process(const String& path, const String& cmdline)
 
 	if (hdr[0] == 0x7f && hdr[1] == 'E' && hdr[2] == 'L' && hdr[3] == 'F') {
 		exec::ElfLoader *loader = new exec::ElfLoader(*image);
-		Process *np = loader->load(cmdline);
+		Process *np = loader->load(cmdline, path);
 		if (!np) {
 			delete loader;
 			delete image;

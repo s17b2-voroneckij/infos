@@ -106,7 +106,7 @@ Filesystem* VirtualFilesystem::instantiate_fs(const char* fstype, Device *dev)
 VFSNode* VirtualFilesystem::lookup_node(const String& spath)
 {
 	const char *path = spath.c_str();
-	fs_log.messagef(LogLevel::DEBUG, "lookup=%s", path);
+	//fs_log.messagef(LogLevel::DEBUG, "lookup=%s", path);
 	
 	// Must supply a path.
 	if (path[0] == 0) return NULL;

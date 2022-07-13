@@ -17,6 +17,7 @@
 #include <infos/fs/directory.h>
 #include <infos/util/string.h>
 #include <arch/arch.h>
+#include <infos/unwind/unwind-dw2.h>
 
 using namespace infos::kernel;
 using namespace infos::fs;
@@ -37,17 +38,22 @@ void SyscallManager::RegisterSyscall(int nr, syscallfn fn)
 	syscall_table_[nr] = fn;
 }
 
-unsigned long SyscallManager::InvokeSyscall(int nr, unsigned long arg0, unsigned long arg1, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5)
+unsigned long SyscallManager::InvokeSyscall(int nr, unsigned long arg0, unsigned long arg1, unsigned long arg2, unsigned long arg3, 
+													unsigned long arg4, unsigned long arg5)
 {
+	Thread::current().enter_syscall();
 	if (nr < 0 || nr >= MAX_SYSCALLS) return -1;
 
 	syscallfn fn = syscall_table_[nr];
 
 	if (fn == nullptr) {
 		syslog.messagef(LogLevel::DEBUG, "UNHANDLED USER SYSTEM CALL: %lu", nr);
+		Thread::current().leave_syscall();
 		return -1;
 	} else {
-		return fn(arg0, arg1, arg2, arg3, arg4, arg5);
+		auto ret = fn(arg0, arg1, arg2, arg3, arg4, arg5);
+		Thread::current().leave_syscall();
+		return ret;
 	}
 }
 
@@ -79,25 +85,79 @@ void DefaultSyscalls::RegisterDefaultSyscalls(SyscallManager& mgr)
 
 	mgr.RegisterSyscall(19, (SyscallManager::syscallfn) DefaultSyscalls::sys_pread);
 	mgr.RegisterSyscall(20, (SyscallManager::syscallfn) DefaultSyscalls::sys_pwrite);
+
+    mgr.RegisterSyscall(21, (SyscallManager::syscallfn) DefaultSyscalls::sys_set_exception_info);
+    mgr.RegisterSyscall(22, (SyscallManager::syscallfn) DefaultSyscalls::sys_run_exception_test);
+
+	mgr.RegisterSyscall(23, (SyscallManager::syscallfn) DefaultSyscalls::sys_allocate_memory);
+	mgr.RegisterSyscall(24, (SyscallManager::syscallfn) DefaultSyscalls::sys_release_memory);
+
+	mgr.RegisterSyscall(25, (SyscallManager::syscallfn) DefaultSyscalls::sys_futex_wait);
+	mgr.RegisterSyscall(26, (SyscallManager::syscallfn) DefaultSyscalls::sys_futex_wake_up);
+
+	mgr.RegisterSyscall(27, (SyscallManager::syscallfn) DefaultSyscalls::sys_thread_id);
+
+	mgr.RegisterSyscall(28, (SyscallManager::syscallfn) DefaultSyscalls::sys_thread_leave);
 }
+
+extern void prepare_exceptions(const char* FILE_NAME);
+extern void run_exception_tests();
+void DefaultSyscalls::sys_set_exception_info(uintptr_t exc_prepare_info_raw_ptr)
+{
+    ExceptionPrepareInfo* exc_prepare_info = (ExceptionPrepareInfo*)exc_prepare_info_raw_ptr;
+    Thread::current().owner().setExceptionPrepareInfo(*exc_prepare_info);
+}
+
+class Int {
+public:
+    explicit Int(unsigned int a) {
+        n = a;
+    }
+
+    unsigned int n;
+};
 
 void DefaultSyscalls::sys_nop()
 {
-
+//	 syslog.messagef(LogLevel::DEBUG, "NOP");
+    return ;
 }
 
 void DefaultSyscalls::sys_yield()
 {
-//	 syslog.messagef(LogLevel::DEBUG, "YIELD");
+	//syslog.messagef(LogLevel::ERROR, "YIELD");
+}
+
+class IntWithDestructor {
+public:
+	IntWithDestructor(int n): a(n) {}
+
+	~IntWithDestructor() {
+		syslog.message(LogLevel::DEBUG, "~IntWithDestructor");
+	}
+
+public:
+	int a;
+};
+
+void DefaultSyscalls::sys_run_exception_test(long run) {
+	if (run) {
+    	run_exception_tests();
+		syslog.message(LogLevel::DEBUG, "tests finished");
+	}
+	throw Int(5);
 }
 
 // TODO: There is no userspace buffer checking done at all.  This really needs to be fixed...
+
+class SysOpenException {};
 
 ObjectHandle DefaultSyscalls::sys_open(uintptr_t filename, uint32_t flags)
 {
 	File *f = sys.vfs().open((const char *) filename, flags);
 	if (!f) {
-		return KernelObject::Error;
+		//return KernelObject::Error;
+        throw SysOpenException();
 	}
 
 	return sys.object_manager().register_object(Thread::current(), f);
@@ -253,6 +313,7 @@ ObjectHandle DefaultSyscalls::sys_create_thread(uintptr_t entry_point, uintptr_t
 
 unsigned int DefaultSyscalls::sys_stop_thread(ObjectHandle h)
 {
+	syslog.message(LogLevel::DEBUG, "sys_stop_thread called");
 	Thread *t;
 	if (h == (ObjectHandle) - 1) {
 		t = &Thread::current();
@@ -264,7 +325,8 @@ unsigned int DefaultSyscalls::sys_stop_thread(ObjectHandle h)
 		return -1;
 	}
 
-	t->stop();
+	t->stop(false);
+	syslog.message(LogLevel::DEBUG, "sys_stop_thread leaving");
 
 	return 0;
 }
@@ -325,4 +387,41 @@ void DefaultSyscalls::sys_set_thread_name(ObjectHandle h, uintptr_t name)
 unsigned long DefaultSyscalls::sys_get_ticks()
 {
 	return sys.runtime().time_since_epoch().count();
+}
+
+void* DefaultSyscalls::sys_allocate_memory(unsigned int nr_pages) {
+	auto result = (void *)Thread::current().owner().vma().allocate_virt_any(nr_pages);
+	return result;
+}
+
+
+void DefaultSyscalls::sys_release_memory(void* va) {
+	Thread::current().owner().vma().release_memory((virt_addr_t)va);
+}
+
+void DefaultSyscalls::sys_futex_wait(virt_addr_t va, uint64_t expected) {
+	auto& process = Thread::current().owner();
+	process.lock();
+	if (*(uint64_t *)va == expected) {
+		process.unlock();
+		process.set_thread_waiting(Thread::current(), va);
+	} else {
+		process.unlock();
+	}
+}
+
+void DefaultSyscalls::sys_futex_wake_up(virt_addr_t va, uint64_t number) {
+	auto& process = Thread::current().owner();
+	process.lock();
+	process.wake_up_threads(va, number);
+	process.unlock();
+}
+
+unsigned long DefaultSyscalls::sys_thread_id() {
+	return Thread::current().get_thread_id();
+}
+
+void DefaultSyscalls::sys_thread_leave() {
+	syslog.message(LogLevel::DEBUG, "sys_thread_leave called");
+	Thread::current().stop(true);
 }

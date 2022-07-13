@@ -15,7 +15,6 @@
 
 namespace infos {
 	namespace util {
-
 		template<typename TKey, typename TValue>
 		struct MapNode {
 
@@ -276,6 +275,20 @@ namespace infos {
 				}
 
 				return false;
+			}
+
+			TValue& get_value(TKey const& key) {
+				Node *node = _root;
+
+				while (node) {
+					if (key < node->Key) {
+						node = node->left();
+					} else if (key > node->Key) {
+						node = node->right();
+					} else {
+						return node->Value;
+					}
+				}
 			}
 
 			ConstIterator begin() const {

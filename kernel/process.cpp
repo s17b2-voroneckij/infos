@@ -39,11 +39,12 @@ void Process::start()
 
 void Process::terminate(int rc)
 {
+	exceptionInfoPresent = false;
 	_terminated = true;
 	_state_changed.trigger();
 
 	for (const auto& thread : _threads) {
-		thread->stop();
+		thread->stop(true);
 	}
 }
 
@@ -54,6 +55,7 @@ Thread& Process::create_thread(ThreadPrivilege::ThreadPrivilege privilege, Threa
 	assert(!(kernel_process() && privilege == ThreadPrivilege::User));
 
 	Thread *new_thread = new Thread(*this, privilege, entry_point, priority, name);
+	new_thread->set_thread_id(_threads.count());
 	_threads.append(new_thread);
 
 	return *new_thread;

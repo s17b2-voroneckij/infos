@@ -18,7 +18,7 @@ namespace infos
 			{
 			public:
 				virtual ~Loader() { }
-				virtual kernel::Process *load(const util::String& cmdline) = 0;
+				virtual kernel::Process *load(const util::String& cmdline, const util::String& path) = 0;
 			};
 		}
 	}

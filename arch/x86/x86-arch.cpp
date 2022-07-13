@@ -123,7 +123,7 @@ void X86Arch::dump_stack(const kernel::ThreadContext& context) const
 void X86Arch::dump_native_context(const X86Context& native_context) const
 {
 	syslog.messagef(LogLevel::DEBUG, "rax=%016lx, rbx=%016lx, rcx=%016lx, rdx=%016lx",
-			native_context.rax,
+			native_context.rcx,
 			native_context.rbx,
 			native_context.rcx,
 			native_context.rdx);
@@ -144,7 +144,7 @@ void X86Arch::dump_native_context(const X86Context& native_context) const
 			native_context.r12,
 			native_context.r13,
 			native_context.r14,
-			native_context.r15);
+			/*native_context.r15*/0);
 
 	syslog.messagef(LogLevel::DEBUG, "rip=%016lx, cs=%04lx, ss=%04lx, rflags=%016lx, extra=%lx",
 			native_context.rip,
@@ -187,6 +187,16 @@ extern "C" {
 		//assert(current_thread);
 		return &current_thread->context();
 	}
+
+    void* get_prepare_current_thread_context(void* exc, uint64_t user_callback, uint64_t rip) {
+        auto ctx = (X86Context*)get_current_thread_context();
+        auto prev_ctx = (X86Context*)ctx->previous_context;
+        prev_ctx->rip = user_callback;
+        prev_ctx->rsp -= 8;
+		prev_ctx->rdi = (uint64_t)exc;
+        *(uint64_t*)(prev_ctx->rsp) = rip;
+        return ctx;
+    }
 
 	void __debug_save_context()
 	{

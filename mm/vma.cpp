@@ -177,49 +177,60 @@ void VMA::insert_mapping(virt_addr_t va, phys_addr_t pa, MappingFlags::MappingFl
 	if (flags & MappingFlags::Writable) pt->writable(true);
 	if (flags & MappingFlags::User) pt->user(true);
 	
-	mm_log.messagef(LogLevel::DEBUG, "vma: mapping va=%p -> pa=%p", va, pa);
+	//mm_log.messagef(LogLevel::DEBUG, "vma: mapping va=%p -> pa=%p", va, pa);
 }
 
 PageDescriptor *VMA::allocate_phys(int order)
 {
 	auto pgd = sys.mm().pgalloc().alloc_pages(order);
 	if (!pgd) return NULL;
-	
+
 	PageAllocation pa;
 	pa.descriptor_base = pgd;
 	pa.allocation_order = order;
-	
+
 	_page_allocations.append(pa);
 	pnzero((void *)sys.mm().pgalloc().pgd_to_vpa(pa.descriptor_base), 1 << order);
-	
+
 	return pgd;
 }
 
-bool VMA::allocate_virt_any(int nr_pages)
+struct AllocationError{};
+
+virt_addr_t VMA::allocate_virt_any(unsigned int nr_pages)
 {
-	return false;
+	auto result = _next_free_address;
+	if (allocate_virt(result, nr_pages)) {
+		_next_free_address += nr_pages * 4096;
+		return result;
+	} else {
+		throw AllocationError();
+	}
+}
+
+void VMA::release_memory(virt_addr_t va) {
 }
 
 bool VMA::allocate_virt(virt_addr_t va, int nr_pages)
 {
 	if (nr_pages == 0) return false;
-	
+
 	int order = __log2ceil(nr_pages);
-	
+
 	const PageDescriptor *pgd = allocate_phys(order);
 	if (!pgd) {
 		return false;
 	}
-	
+
 	virt_addr_t vbase = va;
 	phys_addr_t pbase = sys.mm().pgalloc().pgd_to_pa(pgd);
-	for (unsigned int i = 0; i < (1u << order); i++) {
+	for (unsigned int i = 0; i < nr_pages; i++) {
 		insert_mapping(vbase, pbase, MappingFlags::Present | MappingFlags::User | MappingFlags::Writable);
-		
+
 		vbase += 0x1000;
 		pbase += 0x1000;
 	}
-	
+
 	return true;
 }
 
@@ -232,34 +243,34 @@ bool VMA::is_mapped(virt_addr_t va)
 bool VMA::get_mapping(virt_addr_t va, phys_addr_t& pa)
 {
 	if (!_pgt_virt_base) return false;
-	
+
 	table_idx_t pml4_idx, pdp_idx, pd_idx, pt_idx;
 	va_table_indicies(va, pml4_idx, pdp_idx, pd_idx, pt_idx);
-	
+
 	PML4TableEntry *pml4 = &((PML4TableEntry *)_pgt_virt_base)[pml4_idx];
-	
+
 	if (!pml4->present()) {
 		return false;
 	}
-	
+
 	PDPTableEntry *pdp = &((PDPTableEntry *)pa_to_vpa(pml4->base_address()))[pdp_idx];
-	
+
 	if (!pdp->present()) {
 		return false;
 	}
-	
+
 	PDTableEntry *pd = &((PDTableEntry *)pa_to_vpa(pdp->base_address()))[pd_idx];
-	
+
 	if (!pd->present()) {
 		return false;
 	}
-	
+
 	PTTableEntry *pt = &((PTTableEntry *)pa_to_vpa(pd->base_address()))[pt_idx];
-	
+
 	if (!pt->present()) {
 		return false;
 	}
-	
+
 	pa = pt->base_address() | __page_offset(va);
 	return true;
 }
@@ -270,12 +281,12 @@ bool VMA::copy_to(virt_addr_t dest_va, const void* src, size_t size)
 	phys_addr_t pa;
 	if (!get_mapping(dest_va, pa))
 		return false;
-	
+
 	void *dest = (void *)pa_to_vpa(pa);
-	
+
 	//mm_log.messagef(LogLevel::DEBUG, "vma: copy-to dst=va=%p:pa=%p:vpa=%p src=%p size=%p", dest_va, pa, dest, src, size);
 	memcpy(dest, src, size);
-	
+
 	return true;
 }
 
@@ -300,7 +311,7 @@ void VMA::dump_pdp(int pml4, virt_addr_t pdp_va)
 		if (!te[i].present()) continue;
 		if (te[i].huge()) {
 			uintptr_t va = (uint64_t)pml4 << 36 | (uint64_t)i << 28;
-			mm_log.messagef(LogLevel::DEBUG, "VMA: MAP VA=%p -> PA=%p", va, te[i].base_address());	
+			mm_log.messagef(LogLevel::DEBUG, "VMA: MAP VA=%p -> PA=%p", va, te[i].base_address());
 		} else {
 			dump_pd(pml4, i, pa_to_vpa(te[i].base_address()));
 		}
@@ -326,7 +337,7 @@ void VMA::dump_pt(int pml4, int pdp, int pd, virt_addr_t pt_va)
 	PTTableEntry *te = (PTTableEntry *)pt_va;
 	for (unsigned int i = 0; i < 0x200; i++) {
 		if (!te[i].present()) continue;
-		
+
 		uintptr_t va = (uint64_t)pml4 << 36 | (uint64_t)pdp << 28 | (uint64_t)pd << 20 | (uint64_t)i << 12;
 		mm_log.messagef(LogLevel::DEBUG, "VMA: MAP VA=%p -> PA=%p", va, te[i].base_address());
 	}

@@ -15,6 +15,15 @@
 #include <infos/util/list.h>
 #include <infos/util/string.h>
 #include <infos/util/event.h>
+#include <infos/util/map.h>
+#include <infos/util/wakequeue.h>
+#include <infos/util/lock.h>
+
+struct ExceptionPrepareInfo {
+    void* unwind_address;
+    void *(*malloc_ptr) (uint64_t);
+    void (*free_ptr)(void *);
+};
 
 namespace infos
 {
@@ -42,6 +51,45 @@ namespace infos
 
 			util::Event& state_changed() { return _state_changed; }
 
+            ExceptionPrepareInfo getExceptionPrepareInfo() const {
+                return exceptionPrepareInfo;
+            }
+
+            void setExceptionPrepareInfo(ExceptionPrepareInfo a) {
+                exceptionPrepareInfo = a;
+				exceptionInfoPresent = true;
+            }
+
+			bool exceptionInfoAvailable() const {
+				return exceptionInfoPresent;
+			}
+
+			void set_thread_waiting(Thread& t, virt_addr_t va) {
+				futex_mutex.lock();
+				if (!wake_queue_map.contains_key(va)) {
+					wake_queue_map.add(va, new util::WakeQueue());
+				}
+				auto queue = wake_queue_map.get_value(va);
+				futex_mutex.unlock();
+				queue->sleep(t);
+			}
+
+			void wake_up_threads(virt_addr_t va, uint64_t number) {
+				infos::util::WakeQueue* queue;
+				if (!wake_queue_map.try_get_value(va, queue)) {
+					return;
+				}
+				queue->wakeMax(number);
+			}
+
+			void lock() {
+				futex_mutex.lock();
+			}
+
+			void unlock() {
+				futex_mutex.unlock();
+			}
+
 		private:
 			const util::String _name;
 			bool _kernel_process, _terminated;
@@ -50,6 +98,13 @@ namespace infos
 			Thread *_main_thread;
 
 			util::Event _state_changed;
+
+            ExceptionPrepareInfo exceptionPrepareInfo;
+			bool exceptionInfoPresent = false;
+
+			util::Map<virt_addr_t, util::WakeQueue*> wake_queue_map;
+
+			util::Mutex futex_mutex;
 		};
 	}
 }

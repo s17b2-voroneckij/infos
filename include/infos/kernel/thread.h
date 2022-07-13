@@ -44,7 +44,7 @@ namespace infos
 			bool is_kernel_thread() const { return _privilege == ThreadPrivilege::Kernel; }
 
 			void start();
-			void stop();
+			void stop(bool simple_exit);
 			void sleep();
 			void wake_up();
 
@@ -62,6 +62,19 @@ namespace infos
 			const util::String& name() const { return _name; }
 			void name(const util::String& n) { _name = n; }
 
+			void set_thread_id(unsigned int id) {thread_id = id;};
+
+			auto get_thread_id() const {return thread_id;};
+
+			void enter_syscall() {
+				in_syscall = true;
+				before_syscall_context = _context.native_context;
+			}
+
+			void leave_syscall() {
+				in_syscall = false;
+			}
+
 		private:
 			void prepare_initial_stack();
 
@@ -69,9 +82,12 @@ namespace infos
 			ThreadPrivilege::ThreadPrivilege _privilege;
 			thread_proc_t _entry_point;
 			unsigned int _current_entry_argument;
+			unsigned int thread_id;
 
 			ThreadContext _context;
 			util::String _name;
+			bool in_syscall = false;
+			X86Context* before_syscall_context;
 		};
 	}
 }

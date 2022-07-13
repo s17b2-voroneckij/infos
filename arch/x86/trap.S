@@ -30,7 +30,15 @@
 	push %r12
 	push %r13
 	push %r14
-	push %r15
+	pushq %r15
+	sub $8, %rsp
+	rdgsbase %rcx
+	mov %rcx, (%rsp)
+	sub $8, %rsp
+    rdfsbase %rcx
+	mov %rcx, (%rsp)
+	//push $0
+	//push $0
 
 	// Load the pointer to the thread context into RAX
 	call get_current_thread_context
@@ -70,6 +78,14 @@
 	mov (%rcx), %rsp
 	pop (%rcx)
 
+	//popq %r15
+	//popq %r15
+	mov (%rsp), %rax
+	wrfsbase %rax
+	add $8, %rsp
+	mov (%rsp), %rax
+	wrgsbase %rax
+	add $8, %rsp
 	pop %r15
 	pop %r14
 	pop %r13

@@ -93,7 +93,8 @@ start32:
     out %al, $0x21
 
     // CR4 :=
-    mov $0x6b0, %eax
+    //mov $0x6b0, %eax
+    mov $0x106b0, %eax
     mov %eax, %cr4
 
     // CR4

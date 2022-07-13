@@ -18,7 +18,7 @@ namespace infos
 				ElfLoader(File& f);
 				virtual ~ElfLoader() { }
 				
-				kernel::Process* load(const util::String& cmdline) override;
+				kernel::Process* load(const util::String& cmdline, const util::String& path) override;
 				
 			private:
 				File& _file;

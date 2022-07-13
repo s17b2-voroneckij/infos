@@ -35,6 +35,13 @@ extern "C" infos::kernel::Thread *current_thread;
  * @param irq The IRQ object associated with this exception.
  * @param priv Private data associated with this exception.
  */
+
+struct PageFaultException {
+    explicit PageFaultException(uint64_t a) : addr(a) {}
+
+    uint64_t addr;
+};
+
 static void handle_page_fault(const IRQ *irq, void *priv)
 {
 	// Retrieve the fault_address from the cr2 control register.
@@ -51,7 +58,7 @@ static void handle_page_fault(const IRQ *irq, void *priv)
 
 	// If there is a current thread, abort it.
 	syslog.messagef(LogLevel::WARNING, "*** PAGE FAULT @ vaddr=%p rip=%p proc=%s", fault_address, current_thread->context().native_context->rip, current_thread->owner().name().c_str());
-
+    throw PageFaultException(fault_address);
 	// TODO: support passing page-faults into threads.
 	current_thread->owner().terminate(-1);
 }

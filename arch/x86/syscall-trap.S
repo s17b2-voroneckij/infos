@@ -20,6 +20,5 @@ __syscall_trap:
 
 1:	jmp 1b
 
-	sysret
 
 __syscall_user_stack: .quad 0

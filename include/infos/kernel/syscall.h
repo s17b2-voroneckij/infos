@@ -26,6 +26,8 @@ namespace infos {
 		public:
 			static void sys_nop();
 			static void sys_yield();
+            static void sys_set_exception_info(uintptr_t ptr);
+            static void sys_run_exception_test(long run);
 
 			static ObjectHandle sys_open(uintptr_t filename, uint32_t flags);
 			static unsigned int sys_close(ObjectHandle h);
@@ -52,6 +54,15 @@ namespace infos {
 			static unsigned int sys_get_tod(uintptr_t tpstruct);
 			static void sys_set_thread_name(ObjectHandle thr, uintptr_t name);
 			static unsigned long sys_get_ticks();
+			static void* sys_allocate_memory(unsigned int nr_pages);
+			static void sys_release_memory(void* va);
+
+			static void sys_futex_wait(virt_addr_t va, uint64_t expected);
+			static void sys_futex_wake_up(virt_addr_t va, uint64_t number);
+
+			static unsigned long sys_thread_id();
+
+			static void sys_thread_leave();
 
 			static void RegisterDefaultSyscalls(SyscallManager& mgr);
 		};

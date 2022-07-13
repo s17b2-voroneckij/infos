@@ -95,7 +95,7 @@ ElfLoader::ElfLoader(File &f) : _file(f)
 {
 }
 
-Process *ElfLoader::load(const String &cmdline)
+Process *ElfLoader::load(const String &cmdline, const String &path)
 {
 	ELF64Header hdr;
 
@@ -166,7 +166,9 @@ Process *ElfLoader::load(const String &cmdline)
 		{
 			if (!np->vma().is_mapped(ent.vaddr))
 			{
-				np->vma().allocate_virt(ent.vaddr, __align_up_page(ent.memsz) >> 12);
+				auto va = ent.vaddr & 0xfffffffffffff000;
+				auto shift = ent.vaddr - va;
+				np->vma().allocate_virt(va, (__align_up_page(ent.memsz) >> 12) + (shift > 0));
 			}
 
 			char *buffer = new char[ent.filesz];
@@ -225,6 +227,12 @@ Process *ElfLoader::load(const String &cmdline)
 	{
 		np->main_thread().add_entry_argument(NULL);
 	}
-
+    virt_addr_t path_start = 0x102000 + 4096;
+    np->vma().allocate_virt(path_start, 1);
+    if (!np->vma().copy_to(path_start, path.c_str(), path.length()))
+    {
+        return NULL;
+    }
+    np->main_thread().add_entry_argument((void *)path_start);
 	return np;
 }
